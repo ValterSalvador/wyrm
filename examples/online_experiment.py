@@ -9,16 +9,16 @@ import logging
 
 import numpy as np
 
-# change this to the path of mushu if you don't have it in your
-# PYTHONPATH already
-sys.path.append('../../mushu')
-sys.path.append('../')
-
 import libmushu
 from wyrm.types import RingBuffer
 import wyrm.processing as proc
 from wyrm import io
 
+# change this to the path of mushu if you don't have it in your
+# PYTHONPATH already
+
+sys.path.append('../../mushu')
+sys.path.append('../')
 
 logging.basicConfig(format='%(relativeCreated)10.0f %(threadName)-10s %(name)-10s %(levelname)8s %(message)s', level=logging.NOTSET)
 logger = logging.getLogger(__name__)
@@ -26,10 +26,8 @@ logger = logging.getLogger(__name__)
 # replay the experiment in real time?
 REALTIME = False
 
-
-TRAIN_DATA = 'data/BCI_Comp_III_Wads_2004/Subject_A_Train.mat'
-TEST_DATA = 'data/BCI_Comp_III_Wads_2004/Subject_A_Test.mat'
-
+TRAIN_DATA = 'data/BCI_Comp_III_Wads_2004/Subject_B_Train.mat'
+TEST_DATA = 'data/BCI_Comp_III_Wads_2004/Subject_B_Test.mat'
 CHANNEL_DATA = 'examples/data/BCI_Comp_III_Wads_2004/eloc64.txt'
 
 TRUE_LABELS = "WQXPLZCOMRKO97YFZDEZ1DPI9NNVGRQDJCUVRMEUOOOJD2UFYPOO6J7LDGYEGOA5VHNEHBTXOO1TDOILUEE5BFAEEXAW_K4R3MRU"
@@ -121,7 +119,8 @@ def online_experiment(amp, cfy):
 
         fv = proc.jumping_means(epo, JUMPING_MEANS_IVALS)
         fv = proc.create_feature_vectors(fv)
-        logger.debug(markers_processed)
+        print("\n")
+        logger.debug('Step : %d' % markers_processed)
 
         lda_out = proc.lda_apply(fv, cfy)
         markers = [fv.class_names[cls_idx] for cls_idx in fv.axes[0]]
@@ -136,20 +135,27 @@ def online_experiment(amp, cfy):
             for letter in s:
                 letter_prob[letter] += score
             markers_processed += 1
-        logger.debug("".join([i[0] for i in sorted(letter_prob.items(), key=lambda x: x[1], reverse=True)]).replace(current_letter, " %s " % current_letter))
-        logger.debug(TRUE_LABELS)
-        logger.debug("".join(endresult))
+
+        logger.debug("Probability : %s" % "".join([i[0] for i in sorted(letter_prob.items(), key=lambda x: x[1], reverse=True)])
+                     .replace(current_letter, " %s " % current_letter))
+        logger.debug('Correct Letters : %s' % TRUE_LABELS)
+        logger.debug('Discovered ones : %s' % "".join(endresult))
+        logger.debug('Current letter : %s ' % current_letter)
+
         # calculate the current accuracy
         if len(endresult) > 0:
             acc = np.count_nonzero(np.array(endresult) == np.array(list(TRUE_LABELS.lower()[:len(endresult)]))) / len(endresult)
-            print "Current accuracy:", acc * 100
+            logger.debug('Current accuracy : %d' %(acc * 100))
+
         if len(endresult) == len(TRUE_LABELS):
             break
-        #logger.debug("Result: %s" % result)
-        print 1000 * (time.time() - t0)
+
+        logger.debug('Result : %s' % result)
+        timeValue = 1000 * (time.time() - t0)
+        logger.debug('Time : %d' % timeValue)
 
     acc = np.count_nonzero(np.array(endresult) == np.array(list(TRUE_LABELS.lower()[:len(endresult)]))) / len(endresult)
-    print "Accuracy:", acc * 100
+    logger.debug("Accuracy : %d" % (acc * 100))
 
     amp.stop()
 
@@ -169,10 +175,11 @@ def train(filename):
 
     epo = proc.segment_dat(cnt, MARKER_DEF_TRAIN, SEG_IVAL)
 
-    #from wyrm import plot
-    #plot.plot_spatio_temporal_r2_values(proc.sort_channels(epo))
+    from wyrm import plot
+    logger.debug('Ploting channels...')
+    plot.plot_spatio_temporal_r2_values(proc.sort_channels(epo))
     #print JUMPING_MEANS_IVALS
-    #plot.plt.show()
+    plot.plt.show()
 
     fv = proc.jumping_means(epo, JUMPING_MEANS_IVALS)
     fv = proc.create_feature_vectors(fv)
@@ -191,6 +198,6 @@ if __name__ == '__main__':
     if REALTIME:
         amp.configure(data=cnt.data, marker=cnt.markers, channels=cnt.axes[-1], fs=cnt.fs, blocksize_samples=4)
     else:
-        amp.configure(data=cnt.data, marker=cnt.markers, channels=cnt.axes[-1], fs=cnt.fs, realtime=False, blocksize_samples=40)
+        amp.configure(data=cnt.data, marker=cnt.markers, channels=cnt.axes[-1], fs=cnt.fs)
     online_experiment(amp, cfy)
 
